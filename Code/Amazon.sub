@@ -1,0 +1,18 @@
+log    =    log/g12-chtc_$(Cluster)_$(Process).log
+error  =  error/g12-chtc_$(Cluster)_$(Process).err
+output = output/g12-chtc_$(Cluster)_$(Process).out
+
+universe = vanilla
+executable = ./Amazon.sh
+
+arguments = $(file) $(file).txt
+
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files =packages.tar.gz, http://proxy.chtc.wisc.edu/SQUID/chtc/R402.tar.gz,final.R, /home/groups/STAT_DSCP/group12/data/$(file)
+
+request_cpus = 1
+request_memory = 3GB
+request_disk = 3GB
+
+queue file from alljobs
