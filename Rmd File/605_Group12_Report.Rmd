@@ -77,7 +77,6 @@ where:
 # Analysis and Findings
  
 
-### Plots:
 
 Looking at one category, our final models are:  
 
@@ -95,6 +94,10 @@ df$headline_sentiment = get_sentiment(df$review_headline)
 df$body_sentiment = get_sentiment(df$review_body)
 #head(df,3)
 df$Month_Yr <- format(as.Date(df$review_date), "%Y-%m")
+
+```
+
+```{r}
 data_bybusiness = df %>% group_by(Month_Yr) %>%
   summarise(mean_star = mean(star_rating),
             mean_senti = mean(headline_sentiment),
@@ -120,7 +123,6 @@ abline(lm_headline)
 plot(body_bybusiness$mean_senti,data_bybusiness$mean_star, xlab = "Average Sentiment Score (body)", ylab = "Average Star")
 abline(lm_body)
 ```
-
  
 The following box-whisker plots show the distribution of sentiment scores for one category.    
 
