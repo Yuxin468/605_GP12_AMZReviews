@@ -1,0 +1,157 @@
+---
+title: STAT 605 Project - Group 12 Amazon Reviews Analysis
+author: "Jianwei Ren, Zongliang Han, Yuling Lyu, Yuxin Zhao, Max Zou"
+date: "2022-12-07"
+output:
+  html_document
+---
+
+<style type="text/css">
+
+h1.title {
+  font-size: 38px;
+  color: Black;
+  text-align: center;
+}
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: Black;
+  text-align: center;
+}
+h4.date { /* Header 4 - and the author and data headers use this too  */
+  font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+  text-align: center;
+}
+</style>
+#### Resource Link
+
+<https://www.kaggle.com/datasets/cynthiarempel/amazon-us-customer-reviews-dataset?resource=download>
+
+# Introduction
+
+The Amazon Customer Reviews (Product Reviews) is one of Amazon’s iconic products. The product reviews is a rich resource of information for understanding customer experiences, we sought to predict the user rating of various categories of Amazon products, and assess the difference in performance by using title of reviews and content of reviews to predict the user rating. 
+The statistical methods involved are sentiment analysis and linear regression. Both “review_headline” and “review_body” were given a sentiment score, then a linear regression model was fitted for both headline sentiment scores and body sentiment scores for each category. 
+Based on analysis, we conclude that the content of reviews achieves better sentimental scores compared with sentimental scores of the title of reviews. Therefore, the review text is more effective to use for predicting user ratings. 
+
+
+# Data Processing
+The dataset sourced from kaggle, the overall size is 54.41 GB, it is a collection of reviews written in Amazon.com marketplace and associated metadata from 1995 until 2015, divided by each category of products. The reviews dataset was classified by different files based on product category, such as apparel, book, electronics, etc. 
+The full data set contains the following columns: 
+
+* review_id: The unique ID of the review.\
+* product_title: Title of the product.\
+* product_category: Broad product category that can be used to group * reviews. (also used to group the dataset into coherent parts).\
+* star_rating: The 1-5 star rating of the review.\
+* helpful_votes: Number of helpful votes.\
+* total_votes: Number of total votes the review received.\
+* verified_purchase: The review is on a verified purchase.\
+* review_headline: The title of the review.\
+* review_body: The review text.
+
+Because the object of this project is to assess the difference in performance of using review headlines and review bodies to predict the user rating of Amazon products of various categories, the unnecessary columns were not used. Note that ‘verified_purchase’ is important to take into consideration by intuition, but upon a closer examination of the data, all values of that column are 1, meaning all purchases are verified in the given data set. 
+Therefore, the star rating, the review headline, and the review body were selected. The data files are then uploaded to CHTC for further use. Due to the majority of file type, which is text stored as  .tsv files,  some of the datafiles are very large, with size exceeding 3GB. To avoid exceeding the memory limit, those large files are further splitted into smaller sub-files before uploading. 
+
+
+# Statistical Computation
+
+After some initial modeling, the group decided to further manipulate the data before fitting the actual linear models. The monthly average of the star rating and sentiment scores for either review headline or review body were calculated. Each pair of monthly data acts as one datapoint in the regression. Our final models for each category are:  
+
+$y_i = \alpha_h + \beta_h x_{hi} + \varepsilon_{hi}$ and $y_i = \alpha_b + \beta_b x_{bi} + \varepsilon_{bi}$  
+
+where:  
+
+* $y_i$ is the monthly average star rating.  
+  
+* $x_{hi}$ and $x_{bi}$ are the monthly average of sentiment scores for headline model and body model.  
+  
+* $\alpha_h$ and $\alpha_b$ are the the intercepts for headline model and body model.  
+  
+* $\beta_h$ and $\beta_b$ the slopes for headline model and body model.  
+  
+* $\varepsilon_{hi}$ and $\varepsilon_{bi}$ are the error terms for each model.  
+  
+
+# Analysis and Findings
+ 
+
+### Plots:
+
+Looking at one category, our final models are:  
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+
+library(tidytext)
+library(syuzhet)
+library(dplyr)
+apparel = read.delim("amazon_reviews_us_Apparel_v1_00.tsv", header=TRUE, allowEscapes=FALSE, sep="\t", quote="", na.strings="", comment.char="")
+df = apparel[sample(nrow(apparel), 10000),]
+df = df[c("review_date","star_rating", "review_headline", "review_body")]
+df$headline_sentiment = get_sentiment(df$review_headline)
+df$body_sentiment = get_sentiment(df$review_body)
+#head(df,3)
+df$Month_Yr <- format(as.Date(df$review_date), "%Y-%m")
+data_bybusiness = df %>% group_by(Month_Yr) %>%
+  summarise(mean_star = mean(star_rating),
+            mean_senti = mean(headline_sentiment),
+            .groups = 'drop') %>%
+  as.data.frame()
+
+lm_headline = lm(mean_star~mean_senti, data=data_bybusiness)
+summary(lm_headline)
+
+
+body_bybusiness = df %>% group_by(Month_Yr) %>%
+  summarise(mean_star = mean(star_rating),
+            mean_senti = mean(body_sentiment),
+            .groups = 'drop') %>%
+  as.data.frame()
+
+lm_body = lm(mean_star~mean_senti, data=body_bybusiness)
+summary(lm_body)
+
+plot(data_bybusiness$mean_senti,data_bybusiness$mean_star, xlab = "Average Sentiment Score (headline)", ylab = "Average Star")
+abline(lm_headline)
+
+plot(body_bybusiness$mean_senti,data_bybusiness$mean_star, xlab = "Average Sentiment Score (body)", ylab = "Average Star")
+abline(lm_body)
+```
+
+ 
+The following box-whisker plots show the distribution of sentiment scores for one category.    
+
+
+```{r}
+boxplot(df$headline_sentiment~df$star_rating, ylab = "Sentiment Score (headline)", xlab = "Star Rating")
+boxplot(df$body_sentiment~df$star_rating, ylab = "Sentiment Score (body)", xlab = "Star Rating")
+
+```
+
+30 product categories were picked and 30 corresponding parallel jobs were ran. For most of the categories, using review body as independent variable yields a better model. However, for digital software, digital games, major appliance and mobile electronics, 
+the review headlines predict more accurately than the review body.   
+
+# Weakness  
+
+One of the weakness of this analysis is that, because the star ratings are categorical, the resulting $R^2$ value using the simple linear regression is not very large. One of the reason for this result is that the dependent variable, the user rating stars is a categorical variable. We propose using a multinomial logistic regression for future researchers, which might improve the result. Another reason is that most of the sentiment scores are very similar. Therefore we suggest using a more complex natural language processing method to produce a more evenly distributed sentiment score. 
+
+# Conclusion  
+
+In this project two methods for predicting Amazon user review stars were proposed. Using the large Amazon user review dataset, a sentiment score is calculated for both the headline and the body of the reviews. Then for each category of products, two simple linear regression models were fit with monthly average stars ratings and sentiments. Then the performance of the two models were compared to reach the conclusion that in general, the sentiment scores of the review body is a better approach when predicting user ratings, with the exception of 4 technology & electronics related categories. This approach requires a tremendous amount of computing power given the size of the dataset, with the help of CHTC, running parallel jobs significantly reduced processing time and  prevented exceeding memory limitations. The project had laid a sold foundation for future analysis in the field, and two improvements are proposed, using a multi-logistic regression and considing more complex NLP methods. 
+
+# Github Link
+
+<https://github.com/Yuxin468/605_GP12_AMZReviews>
+
+# Contributions  
+
+Member        Proposal    Coding    Presentation   Report
+------------- ---------- ---------- -------------- ------- 
+Max Zou         1        1          1              1
+Yuling Lyu      1        1          1              1
+Yuxin Zhao      1        1          1              1
+Jianwei Ren     1        1          1              1
+Zongliang Han   1        1          1              1
